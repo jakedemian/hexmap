@@ -81,14 +81,14 @@ export function HexCanvas() {
 
       // fill
       if (tileState === TileState.BLACK) {
-        ctx.fillStyle = '#1a1a2e'
+        ctx.fillStyle = '#2d2d4a'
       } else {
         ctx.fillStyle = '#e8e8f0'
       }
 
       // hover highlight
       if (key === hoveredKey) {
-        ctx.fillStyle = tileState === TileState.BLACK ? '#2a2a4e' : '#c8c8e0'
+        ctx.fillStyle = tileState === TileState.BLACK ? '#3d3d5e' : '#c8c8e0'
       }
 
       ctx.fill()
