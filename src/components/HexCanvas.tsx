@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { useGrid } from '../state/GridContext'
 import { hecsToPixel, pixelToHecs } from '../hex/math'
 import { hexCorners } from '../hex/geometry'
-import { keyToHecs, TileState } from '../hex/types'
+import { hecsToKey, keyToHecs, TileState } from '../hex/types'
 
 const HEX_SIZE = 30
 
@@ -18,6 +18,8 @@ export function HexCanvas() {
   const [camera, setCamera] = useState<Camera>({ offsetX: 0, offsetY: 0, zoom: 1 })
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
   const isPanning = useRef(false)
+  const isDrawing = useRef(false)
+  const drawTarget = useRef<TileState>(TileState.BLACK) // what we're painting tiles to
   const lastMouse = useRef({ x: 0, y: 0 })
   const needsCenter = useRef(true)
 
@@ -115,18 +117,44 @@ export function HexCanvas() {
     return () => window.removeEventListener('resize', handleResize)
   }, [draw])
 
-  // click to toggle
-  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isPanning.current) return
-    const rect = canvasRef.current!.getBoundingClientRect()
-    const screenX = e.clientX - rect.left
-    const screenY = e.clientY - rect.top
+  // helper: paint a tile at screen position during drawing
+  const paintAt = useCallback((screenX: number, screenY: number) => {
     const world = screenToWorld(screenX, screenY, camera)
     const coord = pixelToHecs(world, state.orientation, HEX_SIZE)
-    dispatch({ type: 'TOGGLE_TILE', coord })
-  }, [camera, state.orientation, dispatch, screenToWorld])
+    const key = hecsToKey(coord)
+    if (state.tiles.has(key)) {
+      dispatch({ type: 'SET_TILE', coord, value: drawTarget.current })
+    }
+  }, [camera, state.orientation, state.tiles, dispatch, screenToWorld])
 
-  // mouse move for hover + panning
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // right/middle click = pan
+    if (e.button === 1 || e.button === 2) {
+      e.preventDefault()
+      isPanning.current = true
+      lastMouse.current = { x: e.clientX, y: e.clientY }
+      return
+    }
+
+    // left click = start drawing
+    if (e.button === 0) {
+      const rect = canvasRef.current!.getBoundingClientRect()
+      const screenX = e.clientX - rect.left
+      const screenY = e.clientY - rect.top
+      const world = screenToWorld(screenX, screenY, camera)
+      const coord = pixelToHecs(world, state.orientation, HEX_SIZE)
+      const key = hecsToKey(coord)
+      const current = state.tiles.get(key)
+
+      if (current !== undefined) {
+        // determine draw mode from the starting tile
+        drawTarget.current = current === TileState.WHITE ? TileState.BLACK : TileState.WHITE
+        isDrawing.current = true
+        dispatch({ type: 'SET_TILE', coord, value: drawTarget.current })
+      }
+    }
+  }, [camera, state.orientation, state.tiles, dispatch, screenToWorld])
+
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current!.getBoundingClientRect()
     const screenX = e.clientX - rect.left
@@ -145,31 +173,29 @@ export function HexCanvas() {
       return
     }
 
+    // drawing
+    if (isDrawing.current) {
+      paintAt(screenX, screenY)
+    }
+
     // hover detection
     const world = screenToWorld(screenX, screenY, camera)
     const coord = pixelToHecs(world, state.orientation, HEX_SIZE)
     const key = `${coord.a},${coord.r},${coord.c}`
     setHoveredKey(state.tiles.has(key) ? key : null)
-  }, [camera, state.orientation, state.tiles, screenToWorld])
+  }, [camera, state.orientation, state.tiles, screenToWorld, paintAt])
 
-  // right-click pan support
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-  }, [])
-
-  // also support right-click drag for panning
-  const handleMouseDownAll = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (e.button === 1 || e.button === 2) {
-      e.preventDefault()
-      isPanning.current = true
-      lastMouse.current = { x: e.clientX, y: e.clientY }
-    }
-  }, [])
-
-  const handleMouseUpAll = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (e.button === 1 || e.button === 2) {
       isPanning.current = false
     }
+    if (e.button === 0) {
+      isDrawing.current = false
+    }
+  }, [])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
   }, [])
 
   // zoom with scroll wheel
@@ -197,10 +223,9 @@ export function HexCanvas() {
       <canvas
         ref={canvasRef}
         style={{ width: '100%', height: '100%', display: 'block', cursor: isPanning.current ? 'grabbing' : 'pointer' }}
-        onClick={handleClick}
+        onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseDown={handleMouseDownAll}
-        onMouseUp={handleMouseUpAll}
+        onMouseUp={handleMouseUp}
         onContextMenu={handleContextMenu}
         onWheel={handleWheel}
       />

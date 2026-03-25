@@ -9,6 +9,7 @@ export type GridState = {
 
 export type GridAction =
   | { type: 'TOGGLE_TILE'; coord: HECSCoord }
+  | { type: 'SET_TILE'; coord: HECSCoord; value: TileState }
   | { type: 'SET_ORIENTATION'; orientation: Orientation }
 
 // ensure all neighbors of a coord exist as white tiles
@@ -42,6 +43,23 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
 
       // also expand neighbors of all edge tiles that are now adjacent
       // to give a consistent border of white tiles
+      const neighbors = hecsNeighbors(action.coord, state.orientation)
+      for (const n of neighbors) {
+        expandAt(newTiles, n, state.orientation)
+      }
+
+      return { ...state, tiles: newTiles }
+    }
+
+    case 'SET_TILE': {
+      const key = hecsToKey(action.coord)
+      const newTiles = new Map(state.tiles)
+      if (!newTiles.has(key)) return state
+      if (newTiles.get(key) === action.value) return state
+
+      newTiles.set(key, action.value)
+
+      expandAt(newTiles, action.coord, state.orientation)
       const neighbors = hecsNeighbors(action.coord, state.orientation)
       for (const n of neighbors) {
         expandAt(newTiles, n, state.orientation)
