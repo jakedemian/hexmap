@@ -14,12 +14,10 @@ export type GridAction =
 // ensure all neighbors of a coord exist as white tiles
 function expandAt(tiles: Map<string, TileState>, coord: HECSCoord, orientation: Orientation): Map<string, TileState> {
   const neighbors = hecsNeighbors(coord, orientation)
-  let changed = false
   for (const n of neighbors) {
     const key = hecsToKey(n)
     if (!tiles.has(key)) {
       tiles.set(key, TileState.WHITE)
-      changed = true
     }
   }
   return tiles

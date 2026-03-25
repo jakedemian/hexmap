@@ -152,21 +152,6 @@ export function HexCanvas() {
     setHoveredKey(state.tiles.has(key) ? key : null)
   }, [camera, state.orientation, state.tiles, screenToWorld])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    // middle click or space+click to pan
-    if (e.button === 1) {
-      e.preventDefault()
-      isPanning.current = true
-      lastMouse.current = { x: e.clientX, y: e.clientY }
-    }
-  }, [])
-
-  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (e.button === 1) {
-      isPanning.current = false
-    }
-  }, [])
-
   // right-click pan support
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
