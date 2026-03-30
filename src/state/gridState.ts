@@ -1,6 +1,7 @@
 import type { HECSCoord, Orientation } from '../hex/types'
 import { TileState, hecsToKey } from '../hex/types'
 import { hecsNeighbors } from '../hex/math'
+import { createInitialGrid } from './initGrid'
 
 export type GridState = {
   tiles: Map<string, TileState>
@@ -11,6 +12,7 @@ export type GridAction =
   | { type: 'TOGGLE_TILE'; coord: HECSCoord }
   | { type: 'SET_TILE'; coord: HECSCoord; value: TileState }
   | { type: 'SET_ORIENTATION'; orientation: Orientation }
+  | { type: 'CLEAR_GRID' }
 
 // ensure all neighbors of a coord exist as white tiles
 function expandAt(tiles: Map<string, TileState>, coord: HECSCoord, orientation: Orientation): Map<string, TileState> {
@@ -70,6 +72,10 @@ export function gridReducer(state: GridState, action: GridAction): GridState {
 
     case 'SET_ORIENTATION': {
       return { ...state, orientation: action.orientation }
+    }
+
+    case 'CLEAR_GRID': {
+      return { ...state, tiles: createInitialGrid() }
     }
 
     default:
